@@ -2,7 +2,7 @@ import { Project, ProjectSnapshot } from '../types';
 
 // --- LIVE API CONFIGURATION ---
 const PMS_BASE_URL = 'https://pms.cisin.com';
-const PMS_API_KEY = process.env.PMS_API_KEY;
+const PMS_API_KEY = '56fa936e0b1f403f7b5e7bbdaf9deeb1b3c0fb15'//process.env.PMS_API_KEY;
 
 if (!PMS_API_KEY) {
   console.warn(
