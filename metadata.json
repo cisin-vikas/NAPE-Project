@@ -1,0 +1,5 @@
+{
+  "name": "NAPE - Recursive Reasoning for Predictive Analytics",
+  "description": "A dashboard that uses recursive reasoning with the Gemini API to analyze project management data and produce reliable, auditable predictive insights on project progress and risks.",
+  "requestFramePermissions": []
+}
