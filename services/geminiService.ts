@@ -1,17 +1,17 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { ProjectSnapshot, AnalysisResult } from '../types';
 import { SYSTEM_PROMPT, RECURSIVE_REASONING_PROCEDURE, USER_PROMPT_TEMPLATE } from '../constants';
 
-if (!process.env.API_KEY) {
-    // This is a placeholder check. The build environment must have the API_KEY.
-    // In a real scenario, you'd want to handle this more gracefully.
-    console.warn("API_KEY environment variable not set. Gemini API calls will fail.");
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-
+/**
+ * Analyzes a project snapshot using the Gemini API.
+ * @param snapshot The project data snapshot to analyze.
+ * @returns A promise that resolves to the analysis result.
+ */
+// FIX: Per Gemini API guidelines, the API key is sourced from environment variables, not passed as a parameter.
 export const getProjectAnalysis = async (snapshot: ProjectSnapshot): Promise<AnalysisResult> => {
+    // FIX: Per Gemini API guidelines, the API key must be sourced from process.env.API_KEY.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
     const userPrompt = USER_PROMPT_TEMPLATE.replace('<<PROJECT_DATA_JSON>>', JSON.stringify(snapshot, null, 2));
 
     try {
@@ -40,9 +40,9 @@ export const getProjectAnalysis = async (snapshot: ProjectSnapshot): Promise<Ana
         return result as AnalysisResult;
     } catch (error) {
         console.error("Error calling Gemini API:", error);
-        if (error instanceof Error && error.message.includes('API key not valid')) {
-             throw new Error("Invalid Gemini API key. Please check your configuration.");
+        if (error instanceof Error && (error.message.includes('API key not valid') || error.message.includes('API_KEY_INVALID'))) {
+             throw new Error("Your Gemini API key is not valid. Please check the key and try again.");
         }
-        throw new Error("Failed to get analysis from Gemini API.");
+        throw new Error("Failed to get analysis from Gemini API. Check console for details.");
     }
 };

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Project } from '../types';
 
@@ -8,6 +7,7 @@ interface ProjectSelectorProps {
   onSelectProject: (id: string) => void;
   onAnalyze: () => void;
   isLoading: boolean;
+  areKeysSet: boolean;
 }
 
 const ProjectSelector: React.FC<ProjectSelectorProps> = ({
@@ -16,7 +16,12 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   onSelectProject,
   onAnalyze,
   isLoading,
+  areKeysSet,
 }) => {
+  const isButtonDisabled = isLoading || !selectedProjectId || !areKeysSet;
+  // FIX: Per Gemini API guidelines, Gemini API key is removed from UI. Message updated.
+  const buttonTitle = !areKeysSet ? "Please save your PMS API key in the Configuration section first." : "";
+
   return (
     <div className="bg-brand-surface p-4 rounded-lg border border-brand-border shadow-md">
       <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-4 sm:space-y-0">
@@ -28,10 +33,13 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
             id="project-select"
             value={selectedProjectId}
             onChange={(e) => onSelectProject(e.target.value)}
-            disabled={isLoading || projects.length === 0}
+            disabled={isLoading || !areKeysSet}
             className="w-full bg-brand-bg border border-brand-border rounded-md px-3 py-2 text-brand-secondary focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
           >
-            {projects.length === 0 ? (
+            {!areKeysSet ? (
+              // FIX: Per Gemini API guidelines, Gemini API key is removed from UI. Message updated.
+              <option>Please provide PMS API key...</option>
+            ) : projects.length === 0 ? (
               <option>Loading projects...</option>
             ) : (
               projects.map((project) => (
@@ -44,7 +52,8 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
         </div>
         <button
           onClick={onAnalyze}
-          disabled={isLoading || !selectedProjectId}
+          disabled={isButtonDisabled}
+          title={buttonTitle}
           className="w-full sm:w-auto px-6 py-2 bg-brand-primary text-white font-semibold rounded-md shadow-sm hover:bg-blue-500 disabled:bg-brand-muted disabled:cursor-not-allowed transition-colors duration-200 ease-in-out"
         >
           {isLoading ? 'Analyzing...' : 'Analyze Project'}

@@ -2,25 +2,18 @@ import { Project, ProjectSnapshot } from '../types';
 
 // --- LIVE API CONFIGURATION ---
 const PMS_BASE_URL = 'https://pms.cisin.com';
-const PMS_API_KEY = '56fa936e0b1f403f7b5e7bbdaf9deeb1b3c0fb15'//process.env.PMS_API_KEY;
-
-if (!PMS_API_KEY) {
-  console.warn(
-    'PMS_API_KEY environment variable not set. The application will use mock data. Please provide a valid key for live data.'
-  );
-}
 
 // --- MOCK DATA FALLBACK ---
-// This data is used if the live API call fails, which can happen due to
-// network issues or browser security policies (CORS).
+// This data is used if the live API call fails or if no API key is provided.
+// IDs have been changed to numeric strings to align with typical API behavior.
 const mockProjects: Project[] = [
-  { id: 'PROJ-ALPHA', name: 'Project Alpha - Mobile App Relaunch' },
-  { id: 'PROJ-BETA', name: 'Project Beta - Data Warehouse Migration' },
-  { id: 'PROJ-GAMMA', name: 'Project Gamma - E-commerce Platform Upgrade' },
+  { id: '101', name: 'Project Alpha - Mobile App Relaunch' },
+  { id: '102', name: 'Project Beta - Data Warehouse Migration' },
+  { id: '103', name: 'Project Gamma - E-commerce Platform Upgrade' },
 ];
 
 const mockProjectSnapshots: { [key: string]: ProjectSnapshot } = {
-  'PROJ-ALPHA': {
+  '101': {
     project: {
       project_id: 'PROJ-ALPHA',
       project_name: 'Project Alpha',
@@ -52,7 +45,7 @@ const mockProjectSnapshots: { [key: string]: ProjectSnapshot } = {
     },
     timestamp: new Date().toISOString(),
   },
-  'PROJ-BETA': {
+  '102': {
     project: {
       project_id: 'PROJ-BETA',
       project_name: 'Project Beta - Data Warehouse Migration',
@@ -83,7 +76,7 @@ const mockProjectSnapshots: { [key: string]: ProjectSnapshot } = {
     },
     timestamp: new Date().toISOString(),
   },
-  'PROJ-GAMMA': {
+  '103': {
     project: {
         project_id: 'PROJ-GAMMA',
         project_name: 'Project Gamma - E-commerce Platform Upgrade',
@@ -117,61 +110,92 @@ const mockProjectSnapshots: { [key: string]: ProjectSnapshot } = {
 };
 // --- END MOCK DATA ---
 
-const handleFetchError = (error: any, context: string): never => {
+const handleFetchError = (error: any, context: string, useMock: boolean = false): void => {
     console.error(`Error fetching ${context}:`, error);
-    if (error.message.includes('Failed to fetch')) {
+    if (useMock && error instanceof TypeError && error.message.includes('Failed to fetch')) {
         console.warn(
             `A network error occurred. This is often due to a CORS policy on the remote server.
             The application will fall back to mock data. For a production environment, a backend
             proxy server is recommended to bypass this browser security feature.`
         );
     }
-    throw error;
+    // FIX: Do not re-throw the error. This allows the calling function to proceed with the fallback to mock data.
 };
 
 /**
  * Fetches the list of all projects from the PMS.
+ * @param apiKey The PMS API key, passed from the configuration panel.
+ * @returns A promise that resolves to an array of projects.
  */
-export const getProjects = async (): Promise<Project[]> => {
-  if (!PMS_API_KEY) {
+export const getProjects = async (apiKey: string): Promise<Project[]> => {
+  if (!apiKey) {
+    console.warn('No PMS API Key provided. Falling back to mock data.');
     return mockProjects;
   }
 
   try {
-    const response = await fetch(`${PMS_BASE_URL}/projects.json?key=${PMS_API_KEY}`);
+    const response = await fetch(`${PMS_BASE_URL}/projects.json?key=${apiKey}`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const data = await response.json();
-    return data.projects.map((p: any) => ({ id: p.identifier, name: p.name }));
+
+    if (!data.projects || !Array.isArray(data.projects)) {
+        throw new Error("Invalid response format from PMS API: 'projects' array not found.");
+    }
+    
+    // Map projects using their numeric ID for API calls, as per API docs.
+    return data.projects
+      .filter((p: any) => typeof p === 'object' && p.id && p.name)
+      .map((p: any) => ({ id: p.id.toString(), name: p.name }));
   } catch (error) {
-    handleFetchError(error, 'project list');
-    return mockProjects;
+    handleFetchError(error, 'project list', true);
+    return mockProjects; // Fallback on error
   }
 };
 
 /**
  * Fetches a detailed snapshot for a specific project from the PMS.
- * @param projectId The identifier of the project to fetch.
+ * @param projectId The numeric identifier of the project to fetch.
+ * @param apiKey The PMS API key, passed from the configuration panel.
+ * @returns A promise that resolves to the project snapshot.
  */
-export const getProjectSnapshot = async (projectId: string): Promise<ProjectSnapshot> => {
-    if (!PMS_API_KEY) {
-      return mockProjectSnapshots[projectId] || Promise.reject(new Error(`Mock project with ID '${projectId}' not found.`));
+export const getProjectSnapshot = async (projectId: string, apiKey: string): Promise<ProjectSnapshot> => {
+    if (!apiKey) {
+      console.warn(`No PMS API Key provided for snapshot of ${projectId}. Falling back to mock data.`);
+      const mockSnapshot = mockProjectSnapshots[projectId];
+      if (mockSnapshot) return mockSnapshot;
+      throw new Error(`Mock project with ID '${projectId}' not found.`);
     }
     
     try {
+        // Promise.all for parallel fetching
+        const [projectDetailsRes, issuesRes, membershipsRes] = await Promise.all([
+            fetch(`${PMS_BASE_URL}/projects/${projectId}.json?key=${apiKey}`),
+            fetch(`${PMS_BASE_URL}/issues.json?project_id=${projectId}&key=${apiKey}&limit=100`),
+            fetch(`${PMS_BASE_URL}/projects/${projectId}/memberships.json?key=${apiKey}`)
+        ]);
+
+        if (!projectDetailsRes.ok || !issuesRes.ok || !membershipsRes.ok) {
+            throw new Error('One or more PMS API calls failed.');
+        }
+
         const [projectDetails, issues, memberships] = await Promise.all([
-            fetch(`${PMS_BASE_URL}/projects/${projectId}.json?key=${PMS_API_KEY}`).then(res => res.json()),
-            fetch(`${PMS_BASE_URL}/issues.json?project_id=${projectId}&key=${PMS_API_KEY}&limit=100`).then(res => res.json()),
-            fetch(`${PMS_BASE_URL}/projects/${projectId}/memberships.json?key=${PMS_API_KEY}`).then(res => res.json())
+            projectDetailsRes.json(),
+            issuesRes.json(),
+            membershipsRes.json(),
         ]);
         
         // Assemble the snapshot from different API responses
-        const snapshot: Partial<ProjectSnapshot> = {
+        // Using mock data as a template for fields not available in the API
+        const mockTemplate = mockProjectSnapshots[projectId] || mockProjectSnapshots['101'];
+
+        const snapshot: ProjectSnapshot = {
             project: {
                 project_id: projectDetails.project.identifier,
                 project_name: projectDetails.project.name,
-                target_due_date: projectDetails.project.custom_fields?.find((cf: any) => cf.name === 'Due Date')?.value || mockProjectSnapshots[projectId].project.target_due_date,
-                total_story_points: projectDetails.project.custom_fields?.find((cf: any) => cf.name === 'Total Story Points')?.value || mockProjectSnapshots[projectId].project.total_story_points,
-                completed_story_points: projectDetails.project.custom_fields?.find((cf: any) => cf.name === 'Completed Story Points')?.value || mockProjectSnapshots[projectId].project.completed_story_points,
+                // These custom fields are assumed; if not present, fall back to mock data
+                target_due_date: projectDetails.project.custom_fields?.find((cf: any) => cf.name === 'Due Date')?.value || mockTemplate.project.target_due_date,
+                total_story_points: projectDetails.project.custom_fields?.find((cf: any) => cf.name === 'Total Story Points')?.value || mockTemplate.project.total_story_points,
+                completed_story_points: projectDetails.project.custom_fields?.find((cf: any) => cf.name === 'Completed Story Points')?.value || mockTemplate.project.completed_story_points,
                 last_update_date: projectDetails.project.updated_on,
             },
             tasks: issues.issues.map((issue: any) => ({
@@ -186,18 +210,19 @@ export const getProjectSnapshot = async (projectId: string): Promise<ProjectSnap
                 role_seniority: member.roles.map((r: any) => r.name).join(', ') || 'Member',
                 current_task_load: issues.issues.filter((i: any) => i.assigned_to?.id === member.user.id).length,
             })),
+            // Nuance and trends are complex metrics likely not available from a standard PMS API,
+            // so we continue to use mock data for them to ensure the analysis model works.
+            nuance_metrics: mockTemplate.nuance_metrics,
+            recent_trends: mockTemplate.recent_trends,
             timestamp: new Date().toISOString(),
         };
 
-        // Nuance and trends are complex metrics not available from the API, so we use mock data for them.
-        const mockMetrics = mockProjectSnapshots[projectId] || mockProjectSnapshots['PROJ-ALPHA'];
-        return {
-            ...mockMetrics,
-            ...snapshot,
-        } as ProjectSnapshot;
+        return snapshot;
 
     } catch (error) {
-        handleFetchError(error, `snapshot for project ${projectId}`);
-        return mockProjectSnapshots[projectId] || Promise.reject(new Error(`Mock project with ID '${projectId}' not found.`));
+        handleFetchError(error, `snapshot for project ${projectId}`, true);
+        const mockSnapshot = mockProjectSnapshots[projectId];
+        if (mockSnapshot) return mockSnapshot;
+        throw new Error(`Live API failed and mock project with ID '${projectId}' was not found.`);
     }
 };
