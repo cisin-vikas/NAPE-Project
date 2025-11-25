@@ -38,7 +38,7 @@ const Gauge: React.FC<GaugeProps> = ({ label, percentage }) => {
             cx="50"
             cy="50"
             transform="rotate(-90 50 50)"
-            style={{ transition: 'stroke-dashoffset 0.5s ease-in-out' }}
+            style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(0.25, 0.1, 0.25, 1)' }}
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">

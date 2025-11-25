@@ -38,8 +38,9 @@ export const RECURSIVE_REASONING_PROCEDURE = `Recursive Reasoning Procedure — 
    - Critical path blockers, high-priority overdue tasks, single-person bottlenecks, high reopen rate, low velocity, new team member ramp-up.
 7. Run a second pass: update projections by re-weighting any metrics influenced by detected anomalies (e.g., sprint-to-sprint velocity drop >20% -> reduce velocity by additional 15%).
 8. Run a third pass: sanity check. If projectedCompletionDate < today or > target_due_date by >60 days, flag as extreme outlier and explain in \`diagnostics\`.
-9. Produce final JSON according to schema in the user prompt.
-10. If any step uses assumptions, record them in \`diagnostics.assumptions\`.`;
+9. Construct a synthetic \`velocityTrend\` array (last 4 sprints) based on \`team_historical_velocity\` (current) and \`velocity_change_pct_last_3_sprints\`. Estimate the points for the previous sprints to reflect the trend.
+10. Produce final JSON according to schema in the user prompt.
+11. If any step uses assumptions, record them in \`diagnostics.assumptions\`.`;
 
 export const USER_PROMPT_TEMPLATE = `You will receive a JSON object exactly like the example below under the placeholder \`<<PROJECT_DATA_JSON>>\`. Use the System Prompt and Recursive Reasoning Procedure to analyze the project and return a single JSON object matching the OUTPUT_SCHEMA.
 
@@ -58,6 +59,9 @@ OUTPUT_SCHEMA (must match exactly):
   "adjustedCompletionPercent": 0.00,
   "estimatedWeeksRemaining": 0.0,
   "estimatedDaysRemaining": 0,
+  "velocityTrend": [
+    { "sprint": "string", "points": 0 }
+  ],
   "justification": "string (2-4 sentences, concise)",
   "topRisks": [
     { "risk": "string", "details": "string" }

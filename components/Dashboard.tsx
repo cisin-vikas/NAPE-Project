@@ -6,7 +6,9 @@ import Gauge from './Gauge';
 import RiskList from './RiskList';
 import RecommendationList from './RecommendationList';
 import Diagnostics from './Diagnostics';
-import { CalendarIcon, CheckCircleIcon, LightBulbIcon, ExclamationTriangleIcon, BeakerIcon } from './icons';
+import { BeakerIcon } from './icons';
+import ExportButton from './ExportButton';
+import VelocityChart from './VelocityChart';
 
 const Dashboard: React.FC<{ data: AnalysisResult }> = ({ data }) => {
   const getStatusColor = () => {
@@ -29,6 +31,15 @@ const Dashboard: React.FC<{ data: AnalysisResult }> = ({ data }) => {
 
   return (
     <div className="mt-6 space-y-6 animate-fade-in">
+      {/* Dashboard Header */}
+      <div className="flex justify-between items-start">
+          <div>
+            <h2 className="text-2xl font-bold text-white">{data.projectName}</h2>
+            <p className="text-brand-muted">Analysis as of: {new Date(data.asOfDate).toLocaleDateString()}</p>
+          </div>
+          <ExportButton analysisData={data} />
+      </div>
+
       {/* Top Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard title="Project Status">
@@ -59,6 +70,13 @@ const Dashboard: React.FC<{ data: AnalysisResult }> = ({ data }) => {
           <p className="text-brand-muted leading-relaxed">{data.justification}</p>
         </div>
       </div>
+
+      {/* Velocity Chart */}
+      {data.velocityTrend && data.velocityTrend.length > 0 && (
+         <div className="grid grid-cols-1">
+             <VelocityChart data={data.velocityTrend} />
+         </div>
+      )}
 
       {/* Risks and Recommendations */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

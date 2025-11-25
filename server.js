@@ -1,23 +1,24 @@
-import { Project, ProjectSnapshot } from '../types';
+const express = require('express');
+const cors = require('cors');
 
-// --- MOCK DATA SERVICE ---
-// The application is currently configured to use mock data to allow the frontend to run
-// without a live backend. This is for demonstration and development purposes.
-// To switch to a live backend, comment out the "MOCK DATA IMPLEMENTATION" section
-// and uncomment the "LIVE DATA SERVICE" section below.
+const app = express();
+const port = 5000;
 
-// ===================================================================================
-// --- MOCK DATA IMPLEMENTATION (Inactive) ---
-// ===================================================================================
+app.use(cors()); // Allow requests from the frontend
+app.use(express.json());
 
-/*
-const MOCK_PROJECTS: Project[] = [
+// 56fa936e0b1f403f7b5e7bbdaf9deeb1b3c0fb15
+// --- MOCK DATA FOR BACKEND ---
+// The data is defined here to allow the backend server to function independently
+// for demonstration purposes when the "Live Data Service" is enabled in the frontend.
+
+const MOCK_PROJECTS = [
     { id: 'proj-apollo', name: 'Project Apollo - Q3 Launch Campaign' },
     { id: 'proj-vulcan', name: 'Project Vulcan - Internal Tools Platform' },
     { id: 'proj-neptune', name: 'Project Neptune - Data Migration (At Risk)' },
 ];
 
-const MOCK_SNAPSHOTS: { [key: string]: ProjectSnapshot } = {
+const MOCK_SNAPSHOTS = {
     'proj-apollo': { // A healthy, on-track project
         project: {
             project_id: 'proj-apollo',
@@ -124,101 +125,45 @@ const MOCK_SNAPSHOTS: { [key: string]: ProjectSnapshot } = {
     },
 };
 
-export const getProjects = async (apiKey: string): Promise<Project[]> => {
-  console.log("Using mock PMS service for projects. API Key:", apiKey ? "provided" : "not provided");
-  if (!apiKey) {
-    // Simulate the API key requirement to ensure UI flow is correct.
-    return [];
-  }
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return Promise.resolve(MOCK_PROJECTS);
-};
+// --- ENDPOINTS ---
 
-export const getProjectSnapshot = async (projectId: string, apiKey:string): Promise<ProjectSnapshot> => {
-    console.log(`Using mock PMS service for project snapshot: ${projectId}`);
-    if (!projectId) {
-        throw new Error('A project must be selected.');
-    }
-    if (!apiKey) {
-        throw new Error('PMS API Key is required.');
-    }
-    
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const snapshot = MOCK_SNAPSHOTS[projectId];
-    if (snapshot) {
-        return Promise.resolve(snapshot);
-    } else {
-        // Fallback for any unknown project ID selected initially
-        return Promise.resolve(MOCK_SNAPSHOTS['proj-apollo']);
-    }
-};
-*/
+// 1. Fetch all projects
+app.get('/api/projects', (req, res) => {
+  const pmsApiKey = req.headers['x-pms-api-key'];
 
-
-// ===================================================================================
-// --- LIVE DATA SERVICE (Active) ---
-// ===================================================================================
-// This service now fetches data from the local backend server, which acts as a
-// proxy to your actual Project Management System. Make sure the backend server is running.
-
-
-const API_BASE_URL = 'http://localhost:5000';
-
-
-// Fetches the list of all projects from the backend proxy.
-export const getProjects = async (apiKey: string): Promise<Project[]> => {
-  if (!apiKey) {
-    throw new Error('PMS API Key is required to fetch projects.');
+  if (!pmsApiKey) {
+    return res.status(401).json({ error: 'X-Pms-Api-Key header is required.' });
   }
 
-  try {
-      const response = await fetch(`${API_BASE_URL}/api/projects`, {
-        headers: {
-          'X-Pms-Api-Key': apiKey,
-        }
-      });
+  // Simulate delay
+  setTimeout(() => {
+    res.json(MOCK_PROJECTS);
+  }, 500);
+});
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'An unknown error occurred while fetching projects. Is the backend server running and configured?' }));
-        console.error("Error fetching projects:", errorData);
-        throw new Error(errorData.error || 'Failed to fetch projects.');
+// 2. Fetch a single project snapshot
+app.get('/api/projects/:projectId/snapshot', (req, res) => {
+  const { projectId } = req.params;
+  const pmsApiKey = req.headers['x-pms-api-key'];
+
+  if (!pmsApiKey) {
+    return res.status(401).json({ error: 'X-Pms-Api-Key header is required.' });
+  }
+
+  const snapshot = MOCK_SNAPSHOTS[projectId];
+  
+  // Simulate delay
+  setTimeout(() => {
+      if (snapshot) {
+          res.json(snapshot);
+      } else {
+          // Fallback if needed, or error
+          res.status(404).json({ error: 'Project not found' });
       }
+  }, 800);
+});
 
-      return response.json();
-  } catch (error) {
-      console.error("Network error fetching projects:", error);
-      throw error;
-  }
-};
-
-// Fetches a detailed snapshot for a specific project from the backend proxy.
-export const getProjectSnapshot = async (projectId: string, apiKey:string): Promise<ProjectSnapshot> => {
-    if (!projectId) {
-        throw new Error('A project must be selected.');
-    }
-    if (!apiKey) {
-        throw new Error('PMS API Key is required.');
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/snapshot`, {
-            headers: {
-              'X-Pms-Api-Key': apiKey,
-            }
-          });
-        
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: `An unknown error occurred while fetching snapshot for project ${projectId}.`}));
-            console.error(`Error fetching snapshot for project ${projectId}:`, errorData);
-            throw new Error(errorData.error || `Failed to fetch snapshot for project ${projectId}.`);
-          }
-        
-          return response.json();
-    } catch (error) {
-        console.error(`Network error fetching snapshot for ${projectId}:`, error);
-        throw error;
-    }
-};
+app.listen(port, () => {
+  console.log(`Backend server listening at http://localhost:${port}`);
+  console.log('NOTE: Ensure dependencies are installed: npm install express cors');
+});

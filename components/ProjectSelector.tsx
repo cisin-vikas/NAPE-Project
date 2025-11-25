@@ -7,7 +7,7 @@ interface ProjectSelectorProps {
   onSelectProject: (id: string) => void;
   onAnalyze: () => void;
   isLoading: boolean;
-  areKeysSet: boolean;
+  isKeySet: boolean;
 }
 
 const ProjectSelector: React.FC<ProjectSelectorProps> = ({
@@ -16,11 +16,10 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   onSelectProject,
   onAnalyze,
   isLoading,
-  areKeysSet,
+  isKeySet,
 }) => {
-  const isButtonDisabled = isLoading || !selectedProjectId || !areKeysSet;
-  // FIX: Per Gemini API guidelines, Gemini API key is removed from UI. Message updated.
-  const buttonTitle = !areKeysSet ? "Please save your PMS API key in the Configuration section first." : "";
+  const isButtonDisabled = isLoading || !selectedProjectId || !isKeySet;
+  const buttonTitle = !isKeySet ? "Please save your PMS API key in the Configuration section first." : "";
 
   return (
     <div className="bg-brand-surface p-4 rounded-lg border border-brand-border shadow-md">
@@ -33,12 +32,11 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
             id="project-select"
             value={selectedProjectId}
             onChange={(e) => onSelectProject(e.target.value)}
-            disabled={isLoading || !areKeysSet}
+            disabled={isLoading || !isKeySet}
             className="w-full bg-brand-bg border border-brand-border rounded-md px-3 py-2 text-brand-secondary focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
           >
-            {!areKeysSet ? (
-              // FIX: Per Gemini API guidelines, Gemini API key is removed from UI. Message updated.
-              <option>Please provide PMS API key...</option>
+            {!isKeySet ? (
+              <option>Please provide a PMS API key...</option>
             ) : projects.length === 0 ? (
               <option>Loading projects...</option>
             ) : (

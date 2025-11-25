@@ -16,13 +16,13 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [pmsApiKey, setPmsApiKey] = useState<string>('');
 
-  // FIX: Per Gemini API guidelines, Gemini API key is removed from UI. This handler now only saves the PMS API key.
-  const handlePmsKeySave = (key: string) => {
-    setPmsApiKey(key);
+  const handleKeysSave = useCallback((keys: { pmsKey: string; }) => {
+    setPmsApiKey(keys.pmsKey);
     // Clear previous results and errors when keys change
     setAnalysisResult(null);
     setError(null);
-  };
+  }, []);
+
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -42,7 +42,9 @@ const App: React.FC = () => {
           setSelectedProjectId('');
         }
       } catch (e) {
-        setError('Failed to fetch project list. Check your PMS API Key and connection.');
+        const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred while fetching projects.';
+        setError(errorMessage);
+        setProjects([]); // Clear stale projects
         console.error(e);
       } finally {
         setIsLoading(false);
@@ -57,7 +59,6 @@ const App: React.FC = () => {
       setError('Please select a project to analyze.');
       return;
     }
-    // FIX: Per Gemini API guidelines, Gemini API key is removed from UI. Only check for PMS API key.
     if (!pmsApiKey) {
       setError('Please provide the PMS API key in the configuration section.');
       return;
@@ -69,7 +70,6 @@ const App: React.FC = () => {
 
     try {
       const snapshot = await getProjectSnapshot(selectedProjectId, pmsApiKey);
-      // FIX: Per Gemini API guidelines, getProjectAnalysis sources the API key from environment variables.
       const result = await getProjectAnalysis(snapshot);
       setAnalysisResult(result);
     } catch (e) {
@@ -95,16 +95,14 @@ const App: React.FC = () => {
       </header>
       <main className="container mx-auto p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
-          {/* FIX: Per Gemini API guidelines, Gemini API key is removed from UI. Prop name updated. */}
-          <ConfigurationPanel onPmsKeySave={handlePmsKeySave} />
+          <ConfigurationPanel onKeysSave={handleKeysSave} />
           <ProjectSelector
             projects={projects}
             selectedProjectId={selectedProjectId}
             onSelectProject={setSelectedProjectId}
             onAnalyze={handleAnalyze}
             isLoading={isLoading}
-            // FIX: Per Gemini API guidelines, Gemini API key is removed from UI. Only check for PMS API key.
-            areKeysSet={!!pmsApiKey}
+            isKeySet={!!pmsApiKey}
           />
           {error && <ErrorDisplay message={error} />}
           {isLoading && <Loader />}
@@ -113,7 +111,6 @@ const App: React.FC = () => {
              <div className="text-center py-20 px-6 bg-brand-surface border border-brand-border rounded-lg mt-6">
                 <h2 className="text-xl font-semibold text-white">Welcome to NAPE</h2>
                 <p className="mt-2 text-brand-muted">
-                  {/* FIX: Per Gemini API guidelines, updated welcome text to only ask for PMS API key. */}
                   Please enter your PMS API key in the configuration section above, then select a project and click "Analyze Project" to generate predictive insights.
                 </p>
             </div>
