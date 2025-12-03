@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { Project, AnalysisResult } from './types';
+import { Project, AnalysisResult, ProjectSnapshot } from './types';
 import { getProjects, getProjectSnapshot } from './services/pmsService';
 import { getProjectAnalysis } from './services/geminiService';
 import ProjectSelector from './components/ProjectSelector';
@@ -12,14 +13,18 @@ const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [currentSnapshot, setCurrentSnapshot] = useState<ProjectSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [pmsApiKey, setPmsApiKey] = useState<string>('');
+  const [geminiApiKey, setGeminiApiKey] = useState<string>('');
 
-  const handleKeysSave = useCallback((keys: { pmsKey: string; }) => {
+  const handleKeysSave = useCallback((keys: { pmsKey: string; geminiKey: string }) => {
     setPmsApiKey(keys.pmsKey);
+    setGeminiApiKey(keys.geminiKey);
     // Clear previous results and errors when keys change
     setAnalysisResult(null);
+    setCurrentSnapshot(null);
     setError(null);
   }, []);
 
@@ -59,18 +64,20 @@ const App: React.FC = () => {
       setError('Please select a project to analyze.');
       return;
     }
-    if (!pmsApiKey) {
-      setError('Please provide the PMS API key in the configuration section.');
+    if (!pmsApiKey || !geminiApiKey) {
+      setError('Please provide both the PMS API Key and Gemini API Key in the configuration section.');
       return;
     }
 
     setIsLoading(true);
     setError(null);
     setAnalysisResult(null);
+    setCurrentSnapshot(null);
 
     try {
       const snapshot = await getProjectSnapshot(selectedProjectId, pmsApiKey);
-      const result = await getProjectAnalysis(snapshot);
+      setCurrentSnapshot(snapshot);
+      const result = await getProjectAnalysis(snapshot, geminiApiKey);
       setAnalysisResult(result);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred during analysis.';
@@ -79,7 +86,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedProjectId, pmsApiKey]);
+  }, [selectedProjectId, pmsApiKey, geminiApiKey]);
 
   return (
     <div className="min-h-screen bg-brand-bg font-sans text-brand-secondary">
@@ -102,16 +109,21 @@ const App: React.FC = () => {
             onSelectProject={setSelectedProjectId}
             onAnalyze={handleAnalyze}
             isLoading={isLoading}
-            isKeySet={!!pmsApiKey}
+            isKeySet={!!pmsApiKey && !!geminiApiKey}
           />
           {error && <ErrorDisplay message={error} />}
           {isLoading && <Loader />}
-          {analysisResult && !isLoading && <Dashboard data={analysisResult} />}
+          {analysisResult && !isLoading && (
+            <Dashboard 
+              data={analysisResult} 
+              tasks={currentSnapshot?.tasks} 
+            />
+          )}
           {!analysisResult && !isLoading && !error && (
              <div className="text-center py-20 px-6 bg-brand-surface border border-brand-border rounded-lg mt-6">
                 <h2 className="text-xl font-semibold text-white">Welcome to NAPE</h2>
                 <p className="mt-2 text-brand-muted">
-                  Please enter your PMS API key in the configuration section above, then select a project and click "Analyze Project" to generate predictive insights.
+                  Please enter your PMS and Gemini API keys in the configuration section above, then select a project and click "Analyze Project" to generate predictive insights.
                 </p>
             </div>
           )}

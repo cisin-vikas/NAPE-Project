@@ -38,7 +38,9 @@ export const RECURSIVE_REASONING_PROCEDURE = `Recursive Reasoning Procedure — 
    - Critical path blockers, high-priority overdue tasks, single-person bottlenecks, high reopen rate, low velocity, new team member ramp-up.
 7. Run a second pass: update projections by re-weighting any metrics influenced by detected anomalies (e.g., sprint-to-sprint velocity drop >20% -> reduce velocity by additional 15%).
 8. Run a third pass: sanity check. If projectedCompletionDate < today or > target_due_date by >60 days, flag as extreme outlier and explain in \`diagnostics\`.
-9. Construct a synthetic \`velocityTrend\` array (last 4 sprints) based on \`team_historical_velocity\` (current) and \`velocity_change_pct_last_3_sprints\`. Estimate the points for the previous sprints to reflect the trend.
+9. Construct a synthetic \`burndownTrend\` array for the past 5-6 sprints. 
+   - \`idealRemaining\`: Start at \`total_story_points\` and decrease linearly to 0 by the \`target_due_date\`.
+   - \`actualRemaining\`: Start at \`total_story_points\` and decrease based on historical velocity and \`completed_story_points\`. Ensure the last point matches the current remaining points (Total - Completed).
 10. Produce final JSON according to schema in the user prompt.
 11. If any step uses assumptions, record them in \`diagnostics.assumptions\`.`;
 
@@ -59,8 +61,8 @@ OUTPUT_SCHEMA (must match exactly):
   "adjustedCompletionPercent": 0.00,
   "estimatedWeeksRemaining": 0.0,
   "estimatedDaysRemaining": 0,
-  "velocityTrend": [
-    { "sprint": "string", "points": 0 }
+  "burndownTrend": [
+    { "sprint": "string", "idealRemaining": 0, "actualRemaining": 0 }
   ],
   "justification": "string (2-4 sentences, concise)",
   "topRisks": [

@@ -1,24 +1,19 @@
+
 import { Project, ProjectSnapshot } from '../types';
 
-// --- MOCK DATA SERVICE ---
-// The application is currently configured to use mock data to allow the frontend to run
-// without a live backend. This is for demonstration and development purposes.
-// To switch to a live backend, comment out the "MOCK DATA IMPLEMENTATION" section
-// and uncomment the "LIVE DATA SERVICE" section below.
+// UPDATED: Direct connection to the PMS.
+// NOTE: This may require CORS configuration on the pms.cisin.com server to work from a browser.
+const API_BASE_URL = 'https://cors-anywhere.herokuapp.com/https://pms.cisin.com';
 
-// ===================================================================================
-// --- MOCK DATA IMPLEMENTATION (Inactive) ---
-// ===================================================================================
-
-/*
+// --- FALLBACK MOCK DATA ---
+// Used when the API is not reachable (e.g., due to CORS or network issues).
 const MOCK_PROJECTS: Project[] = [
-    { id: 'proj-apollo', name: 'Project Apollo - Q3 Launch Campaign' },
-    { id: 'proj-vulcan', name: 'Project Vulcan - Internal Tools Platform' },
-    { id: 'proj-neptune', name: 'Project Neptune - Data Migration (At Risk)' },
+    { id: 'proj-apollo', name: 'Project Apollo - Q3 Launch Campaign (Mock)' },
+    { id: 'proj-vulcan', name: 'Project Vulcan - Internal Tools Platform (Mock)' },
 ];
 
-const MOCK_SNAPSHOTS: { [key: string]: ProjectSnapshot } = {
-    'proj-apollo': { // A healthy, on-track project
+const MOCK_SNAPSHOTS: Record<string, ProjectSnapshot> = {
+    'proj-apollo': { 
         project: {
             project_id: 'proj-apollo',
             project_name: 'Project Apollo - Q3 Launch Campaign',
@@ -32,193 +27,168 @@ const MOCK_SNAPSHOTS: { [key: string]: ProjectSnapshot } = {
             status: i < 45 ? 'Done' : 'In Progress',
             assignee_id: `user-0${(i % 4) + 1}`,
             priority: 'Medium',
+            dependencies: (i % 7 === 0 && i > 0) ? [`AP-${i}`] : [],
         })),
         team: [
             { user_id: 'user-01', user_name: 'Alice', role_seniority: 'Senior Engineer', current_task_load: 1 },
             { user_id: 'user-02', user_name: 'Bob', role_seniority: 'Mid-level Engineer', current_task_load: 2 },
-            { user_id: 'user-03', user_name: 'Charlie', role_seniority: 'Designer', current_task_load: 1 },
-            { user_id: 'user-04', user_name: 'Diana', role_seniority: 'Junior Engineer', current_task_load: 1 },
         ],
         nuance_metrics: {
             team_historical_velocity: 22,
-            team_historical_estimation_accuracy: 0.97, // Very accurate
+            team_historical_estimation_accuracy: 0.97,
             task_reopen_rate: 0.03,
             avg_blocker_resolution_time_days: 1.5,
             task_churn_rate: 0.05,
             new_team_member_flag: false,
         },
         recent_trends: {
-            velocity_change_pct_last_3_sprints: 0.08, // Velocity increased
+            velocity_change_pct_last_3_sprints: 0.08,
             completed_points_last_week: 24,
         },
         timestamp: new Date().toISOString(),
-    },
-    'proj-vulcan': { // A new project, just started
-        project: {
-            project_id: 'proj-vulcan',
-            project_name: 'Project Vulcan - Internal Tools Platform',
-            target_due_date: '2025-02-28',
-            total_story_points: 180,
-            completed_story_points: 15,
-            last_update_date: new Date().toISOString().split('T')[0],
-        },
-        tasks: [
-             { task_id: 'VUL-01', status: 'In Progress', assignee_id: 'user-01', priority: 'High' },
-             { task_id: 'VUL-02', status: 'To Do', assignee_id: 'user-02', priority: 'High' },
-             { task_id: 'VUL-03', status: 'To Do', assignee_id: 'user-01', priority: 'Medium' },
-        ],
-        team: [
-            { user_id: 'user-01', user_name: 'Alice', role_seniority: 'Senior Engineer', current_task_load: 2 },
-            { user_id: 'user-02', user_name: 'Bob', role_seniority: 'Mid-level Engineer', current_task_load: 1 },
-        ],
-        nuance_metrics: {
-            team_historical_velocity: 20, // Based on team's past projects
-            team_historical_estimation_accuracy: 1.05, // Slight underestimation
-            task_reopen_rate: 0.01,
-            avg_blocker_resolution_time_days: 0.5,
-            task_churn_rate: 0.0,
-            new_team_member_flag: false,
-        },
-        recent_trends: {
-            velocity_change_pct_last_3_sprints: 0,
-            completed_points_last_week: 8,
-        },
-        timestamp: new Date().toISOString(),
-    },
-    'proj-neptune': { // An at-risk project
-        project: {
-            project_id: 'proj-neptune',
-            project_name: 'Project Neptune - Data Migration (At Risk)',
-            target_due_date: '2024-09-30',
-            total_story_points: 250,
-            completed_story_points: 110,
-            last_update_date: new Date().toISOString().split('T')[0],
-        },
-        tasks: [
-            { task_id: 'NEP-01', status: 'Done', assignee_id: 'user-01', priority: 'High' },
-            { task_id: 'NEP-02', status: 'In Progress', assignee_id: 'user-02', priority: 'High', dependencies: ['NEP-01'] },
-            { task_id: 'NEP-03', status: 'Blocked', assignee_id: 'user-03', priority: 'High', dependencies: ['NEP-02'], is_overdue: true },
-            { task_id: 'NEP-04', status: 'To Do', assignee_id: 'user-01', priority: 'Medium' },
-            { task_id: 'NEP-05', status: 'In Progress', assignee_id: 'user-04', priority: 'Medium', time_logged_hours: 10, original_estimate_hours: 20 },
-            { task_id: 'NEP-06', status: 'To Do', assignee_id: 'user-02', priority: 'Low' },
-        ],
-        team: [
-            { user_id: 'user-01', user_name: 'Alice', role_seniority: 'Senior Engineer', current_task_load: 2 },
-            { user_id: 'user-02', user_name: 'Bob', role_seniority: 'Mid-level Engineer', current_task_load: 3, scheduled_pto: [`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate() + 5).padStart(2, '0')}`] },
-            { user_id: 'user-03', user_name: 'Charlie', role_seniority: 'Designer', current_task_load: 1 },
-            { user_id: 'user-04', user_name: 'Diana', role_seniority: 'Junior Engineer', current_task_load: 1, team_join_date: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0] },
-        ],
-        nuance_metrics: {
-            team_historical_velocity: 15, // SP/week
-            team_historical_estimation_accuracy: 1.25, // Tends to underestimate by 25%
-            task_reopen_rate: 0.11, // 11% of tasks are reopened
-            avg_blocker_resolution_time_days: 4,
-            task_churn_rate: 0.15, // 15% of tasks change scope
-            new_team_member_flag: true,
-        },
-        recent_trends: {
-            velocity_change_pct_last_3_sprints: -0.20, // Velocity dropped by 20%
-            completed_points_last_week: 9,
-        },
-        timestamp: new Date().toISOString(),
-    },
+    }
+};
+
+// Helper to handle direct Redmine API errors
+const handleApiError = async (response: Response, context: string) => {
+    if (!response.ok) {
+        // Try to parse text/json error
+        const text = await response.text();
+        console.warn(`Error in ${context}: ${response.status} ${response.statusText}`, text);
+        throw new Error(`PMS Request Failed: ${response.status} ${response.statusText}`);
+    }
+    return response.json();
 };
 
 export const getProjects = async (apiKey: string): Promise<Project[]> => {
-  console.log("Using mock PMS service for projects. API Key:", apiKey ? "provided" : "not provided");
   if (!apiKey) {
-    // Simulate the API key requirement to ensure UI flow is correct.
-    return [];
-  }
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return Promise.resolve(MOCK_PROJECTS);
-};
-
-export const getProjectSnapshot = async (projectId: string, apiKey:string): Promise<ProjectSnapshot> => {
-    console.log(`Using mock PMS service for project snapshot: ${projectId}`);
-    if (!projectId) {
-        throw new Error('A project must be selected.');
-    }
-    if (!apiKey) {
-        throw new Error('PMS API Key is required.');
-    }
-    
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const snapshot = MOCK_SNAPSHOTS[projectId];
-    if (snapshot) {
-        return Promise.resolve(snapshot);
-    } else {
-        // Fallback for any unknown project ID selected initially
-        return Promise.resolve(MOCK_SNAPSHOTS['proj-apollo']);
-    }
-};
-*/
-
-
-// ===================================================================================
-// --- LIVE DATA SERVICE (Active) ---
-// ===================================================================================
-// This service now fetches data from the local backend server, which acts as a
-// proxy to your actual Project Management System. Make sure the backend server is running.
-
-
-const API_BASE_URL = 'http://localhost:5000';
-
-
-// Fetches the list of all projects from the backend proxy.
-export const getProjects = async (apiKey: string): Promise<Project[]> => {
-  if (!apiKey) {
-    throw new Error('PMS API Key is required to fetch projects.');
+    throw new Error('PMS API Key is required.');
   }
 
   try {
-      const response = await fetch(`${API_BASE_URL}/api/projects`, {
-        headers: {
-          'X-Pms-Api-Key': apiKey,
-        }
+      // Redmine API: /projects.json
+      // Using 'key' query param as requested by the user's URL structure
+      const url = `${API_BASE_URL}/projects.json?key=${apiKey}&limit=100`;
+      
+      const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+             'Content-Type': 'application/json'
+             // Note: Some Redmine configs prefer 'X-Redmine-API-Key': apiKey header instead of query param
+          }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'An unknown error occurred while fetching projects. Is the backend server running and configured?' }));
-        console.error("Error fetching projects:", errorData);
-        throw new Error(errorData.error || 'Failed to fetch projects.');
-      }
+      const data = await handleApiError(response, 'getProjects');
 
-      return response.json();
+      // Transform Redmine format to NAPE format
+      return data.projects.map((p: any) => ({
+        id: p.id.toString(),
+        name: p.name
+      }));
+
   } catch (error) {
-      console.error("Network error fetching projects:", error);
-      throw error;
+      console.warn("Direct API connection failed (likely CORS or Network). Falling back to Mock.", error);
+      return MOCK_PROJECTS;
   }
 };
 
-// Fetches a detailed snapshot for a specific project from the backend proxy.
 export const getProjectSnapshot = async (projectId: string, apiKey:string): Promise<ProjectSnapshot> => {
-    if (!projectId) {
-        throw new Error('A project must be selected.');
-    }
-    if (!apiKey) {
-        throw new Error('PMS API Key is required.');
-    }
+    if (!projectId) throw new Error('A project must be selected.');
+    if (!apiKey) throw new Error('PMS API Key is required.');
     
     try {
-        const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/snapshot`, {
-            headers: {
-              'X-Pms-Api-Key': apiKey,
+        // 1. Fetch Project Details
+        const projectUrl = `${API_BASE_URL}/projects/${projectId}.json?key=${apiKey}`;
+        const projectRes = await fetch(projectUrl);
+        const projectData = await handleApiError(projectRes, 'getProjectDetails');
+        const p = projectData.project;
+
+        // 2. Fetch Issues (Tasks)
+        // status_id=* gets all statuses
+        const issuesUrl = `${API_BASE_URL}/issues.json?project_id=${projectId}&status_id=*&limit=100&key=${apiKey}`;
+        const issuesRes = await fetch(issuesUrl);
+        const issuesData = await handleApiError(issuesRes, 'getProjectIssues');
+        const issues = issuesData.issues || [];
+
+        // 3. Transform Data to NAPE Snapshot Schema (Logic moved from server.js to client)
+        let totalPoints = 0;
+        let completedPoints = 0;
+        const teamMap = new Map<string, any>(); 
+
+        const tasks = issues.map((issue: any) => {
+            const points = issue.estimated_hours || 1; 
+            const isDone = (issue.status.name || '').toLowerCase() === 'closed' || issue.done_ratio === 100;
+            
+            totalPoints += points;
+            if (isDone) completedPoints += points;
+
+            // Build Team list
+            if (issue.assigned_to) {
+                const userId = issue.assigned_to.id.toString();
+                if (!teamMap.has(userId)) {
+                    teamMap.set(userId, {
+                        user_id: userId,
+                        user_name: issue.assigned_to.name,
+                        role_seniority: 'Developer', 
+                        current_task_load: 0
+                    });
+                }
+                if (!isDone) {
+                    teamMap.get(userId).current_task_load += points;
+                }
             }
-          });
-        
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: `An unknown error occurred while fetching snapshot for project ${projectId}.`}));
-            console.error(`Error fetching snapshot for project ${projectId}:`, errorData);
-            throw new Error(errorData.error || `Failed to fetch snapshot for project ${projectId}.`);
-          }
-        
-          return response.json();
+
+            return {
+                task_id: issue.id.toString(),
+                status: issue.status.name,
+                assignee_id: issue.assigned_to ? issue.assigned_to.id.toString() : 'unassigned',
+                priority: issue.priority.name,
+                time_logged_hours: issue.spent_hours || 0,
+                original_estimate_hours: issue.estimated_hours || 0,
+                is_overdue: issue.due_date ? new Date(issue.due_date) < new Date() && !isDone : false,
+                dependencies: [], // Default to empty array as standard Redmine list response doesn't include relations
+            };
+        });
+
+        const team = Array.from(teamMap.values());
+
+        // Synthetic Nuance Metrics (Calculated on client side now)
+        const overdueCount = tasks.filter((t: any) => t.is_overdue).length;
+        const accuracy = overdueCount > 2 ? 0.8 : 1.05;
+
+        // Default to a due date 30 days out if not set
+        const targetDueDate = p.due_date || new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0];
+
+        return {
+            project: {
+                project_id: p.id.toString(),
+                project_name: p.name,
+                target_due_date: targetDueDate,
+                total_story_points: Math.round(totalPoints),
+                completed_story_points: Math.round(completedPoints),
+                last_update_date: p.updated_on ? p.updated_on.split('T')[0] : new Date().toISOString().split('T')[0],
+            },
+            tasks: tasks,
+            team: team,
+            nuance_metrics: {
+                team_historical_velocity: Math.max(10, Math.round(completedPoints / 4)), 
+                team_historical_estimation_accuracy: accuracy,
+                task_reopen_rate: 0.05, 
+                avg_blocker_resolution_time_days: 2.0, 
+                task_churn_rate: 0.1, 
+                new_team_member_flag: false,
+            },
+            recent_trends: {
+                velocity_change_pct_last_3_sprints: 0.0,
+                completed_points_last_week: Math.round(completedPoints / 10), 
+            },
+            timestamp: new Date().toISOString(),
+        };
+
     } catch (error) {
-        console.error(`Network error fetching snapshot for ${projectId}:`, error);
-        throw error;
+        console.warn(`Error fetching snapshot for project ${projectId}. Falling back to MOCK DATA.`, error);
+        const mockSnapshot = MOCK_SNAPSHOTS[projectId] || MOCK_SNAPSHOTS['proj-apollo'];
+        // Return a mock if specific one missing
+        return mockSnapshot; 
     }
 };

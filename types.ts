@@ -57,9 +57,10 @@ export interface AnalysisResult {
   adjustedCompletionPercent: number;
   estimatedWeeksRemaining: number;
   estimatedDaysRemaining: number;
-  velocityTrend: {
+  burndownTrend: {
     sprint: string;
-    points: number;
+    idealRemaining: number;
+    actualRemaining: number;
   }[];
   justification: string;
   topRisks: {

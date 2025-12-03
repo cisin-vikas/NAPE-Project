@@ -1,169 +1,190 @@
 const express = require('express');
 const cors = require('cors');
 
+// Dynamic import for node-fetch (v3 is ESM only)
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+
 const app = express();
 const port = 5000;
+const PMS_BASE_URL = 'https://cors-anywhere.herokuapp.com/https://pms.cisin.com';
 
 app.use(cors()); // Allow requests from the frontend
 app.use(express.json());
 
-// 56fa936e0b1f403f7b5e7bbdaf9deeb1b3c0fb15
-// --- MOCK DATA FOR BACKEND ---
-// The data is defined here to allow the backend server to function independently
-// for demonstration purposes when the "Live Data Service" is enabled in the frontend.
-
-const MOCK_PROJECTS = [
-    { id: 'proj-apollo', name: 'Project Apollo - Q3 Launch Campaign' },
-    { id: 'proj-vulcan', name: 'Project Vulcan - Internal Tools Platform' },
-    { id: 'proj-neptune', name: 'Project Neptune - Data Migration (At Risk)' },
-];
-
-const MOCK_SNAPSHOTS = {
-    'proj-apollo': { // A healthy, on-track project
-        project: {
-            project_id: 'proj-apollo',
-            project_name: 'Project Apollo - Q3 Launch Campaign',
-            target_due_date: '2024-11-30',
-            total_story_points: 300,
-            completed_story_points: 250,
-            last_update_date: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0],
-        },
-        tasks: Array.from({ length: 50 }, (_, i) => ({
-            task_id: `AP-${i + 1}`,
-            status: i < 45 ? 'Done' : 'In Progress',
-            assignee_id: `user-0${(i % 4) + 1}`,
-            priority: 'Medium',
-        })),
-        team: [
-            { user_id: 'user-01', user_name: 'Alice', role_seniority: 'Senior Engineer', current_task_load: 1 },
-            { user_id: 'user-02', user_name: 'Bob', role_seniority: 'Mid-level Engineer', current_task_load: 2 },
-            { user_id: 'user-03', user_name: 'Charlie', role_seniority: 'Designer', current_task_load: 1 },
-            { user_id: 'user-04', user_name: 'Diana', role_seniority: 'Junior Engineer', current_task_load: 1 },
-        ],
-        nuance_metrics: {
-            team_historical_velocity: 22,
-            team_historical_estimation_accuracy: 0.97, // Very accurate
-            task_reopen_rate: 0.03,
-            avg_blocker_resolution_time_days: 1.5,
-            task_churn_rate: 0.05,
-            new_team_member_flag: false,
-        },
-        recent_trends: {
-            velocity_change_pct_last_3_sprints: 0.08, // Velocity increased
-            completed_points_last_week: 24,
-        },
-        timestamp: new Date().toISOString(),
-    },
-    'proj-vulcan': { // A new project, just started
-        project: {
-            project_id: 'proj-vulcan',
-            project_name: 'Project Vulcan - Internal Tools Platform',
-            target_due_date: '2025-02-28',
-            total_story_points: 180,
-            completed_story_points: 15,
-            last_update_date: new Date().toISOString().split('T')[0],
-        },
-        tasks: [
-             { task_id: 'VUL-01', status: 'In Progress', assignee_id: 'user-01', priority: 'High' },
-             { task_id: 'VUL-02', status: 'To Do', assignee_id: 'user-02', priority: 'High' },
-             { task_id: 'VUL-03', status: 'To Do', assignee_id: 'user-01', priority: 'Medium' },
-        ],
-        team: [
-            { user_id: 'user-01', user_name: 'Alice', role_seniority: 'Senior Engineer', current_task_load: 2 },
-            { user_id: 'user-02', user_name: 'Bob', role_seniority: 'Mid-level Engineer', current_task_load: 1 },
-        ],
-        nuance_metrics: {
-            team_historical_velocity: 20, // Based on team's past projects
-            team_historical_estimation_accuracy: 1.05, // Slight underestimation
-            task_reopen_rate: 0.01,
-            avg_blocker_resolution_time_days: 0.5,
-            task_churn_rate: 0.0,
-            new_team_member_flag: false,
-        },
-        recent_trends: {
-            velocity_change_pct_last_3_sprints: 0,
-            completed_points_last_week: 8,
-        },
-        timestamp: new Date().toISOString(),
-    },
-    'proj-neptune': { // An at-risk project
-        project: {
-            project_id: 'proj-neptune',
-            project_name: 'Project Neptune - Data Migration (At Risk)',
-            target_due_date: '2024-09-30',
-            total_story_points: 250,
-            completed_story_points: 110,
-            last_update_date: new Date().toISOString().split('T')[0],
-        },
-        tasks: [
-            { task_id: 'NEP-01', status: 'Done', assignee_id: 'user-01', priority: 'High' },
-            { task_id: 'NEP-02', status: 'In Progress', assignee_id: 'user-02', priority: 'High', dependencies: ['NEP-01'] },
-            { task_id: 'NEP-03', status: 'Blocked', assignee_id: 'user-03', priority: 'High', dependencies: ['NEP-02'], is_overdue: true },
-            { task_id: 'NEP-04', status: 'To Do', assignee_id: 'user-01', priority: 'Medium' },
-            { task_id: 'NEP-05', status: 'In Progress', assignee_id: 'user-04', priority: 'Medium', time_logged_hours: 10, original_estimate_hours: 20 },
-            { task_id: 'NEP-06', status: 'To Do', assignee_id: 'user-02', priority: 'Low' },
-        ],
-        team: [
-            { user_id: 'user-01', user_name: 'Alice', role_seniority: 'Senior Engineer', current_task_load: 2 },
-            { user_id: 'user-02', user_name: 'Bob', role_seniority: 'Mid-level Engineer', current_task_load: 3, scheduled_pto: [`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate() + 5).padStart(2, '0')}`] },
-            { user_id: 'user-03', user_name: 'Charlie', role_seniority: 'Designer', current_task_load: 1 },
-            { user_id: 'user-04', user_name: 'Diana', role_seniority: 'Junior Engineer', current_task_load: 1, team_join_date: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0] },
-        ],
-        nuance_metrics: {
-            team_historical_velocity: 15, // SP/week
-            team_historical_estimation_accuracy: 1.25, // Tends to underestimate by 25%
-            task_reopen_rate: 0.11, // 11% of tasks are reopened
-            avg_blocker_resolution_time_days: 4,
-            task_churn_rate: 0.15, // 15% of tasks change scope
-            new_team_member_flag: true,
-        },
-        recent_trends: {
-            velocity_change_pct_last_3_sprints: -0.20, // Velocity dropped by 20%
-            completed_points_last_week: 9,
-        },
-        timestamp: new Date().toISOString(),
-    },
-};
-
-// --- ENDPOINTS ---
-
-// 1. Fetch all projects
-app.get('/api/projects', (req, res) => {
-  const pmsApiKey = req.headers['x-pms-api-key'];
-
-  if (!pmsApiKey) {
-    return res.status(401).json({ error: 'X-Pms-Api-Key header is required.' });
-  }
-
-  // Simulate delay
-  setTimeout(() => {
-    res.json(MOCK_PROJECTS);
-  }, 500);
+// --- LOGGING MIDDLEWARE ---
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${req.method} ${req.url}`);
+  next();
 });
 
-// 2. Fetch a single project snapshot
-app.get('/api/projects/:projectId/snapshot', (req, res) => {
-  const { projectId } = req.params;
-  const pmsApiKey = req.headers['x-pms-api-key'];
+// --- HELPER: ERROR HANDLER ---
+const handlePmsError = (res, error, context) => {
+    console.error(`Error in ${context}:`, error);
+    res.status(500).json({ 
+        error: `Failed to communicate with PMS: ${error.message}`,
+        details: 'Ensure the VPN is connected if required and the API Key is correct.' 
+    });
+};
 
-  if (!pmsApiKey) {
+// --- HEALTH CHECK ---
+app.get('/', (req, res) => {
+  res.send('NAPE Backend is running and configured for pms.cisin.com. Use /api/projects to fetch data.');
+});
+
+// --- ENDPOINT: LIST PROJECTS ---
+app.get('/api/projects', async (req, res) => {
+  const apiKey = req.headers['x-pms-api-key'];
+
+  if (!apiKey) {
     return res.status(401).json({ error: 'X-Pms-Api-Key header is required.' });
   }
 
-  const snapshot = MOCK_SNAPSHOTS[projectId];
-  
-  // Simulate delay
-  setTimeout(() => {
-      if (snapshot) {
-          res.json(snapshot);
-      } else {
-          // Fallback if needed, or error
-          res.status(404).json({ error: 'Project not found' });
-      }
-  }, 800);
+  try {
+    // Redmine API: /projects.json
+    const pmsUrl = `${PMS_BASE_URL}/projects.json?key=${apiKey}&limit=100`;
+    console.log(`Fetching projects from: ${pmsUrl}`);
+    
+    const response = await fetch(pmsUrl);
+    
+    if (!response.ok) {
+        throw new Error(`PMS responded with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Transform Redmine projects to NAPE format
+    // Redmine returns { projects: [ { id, name, identifier, ... } ], ... }
+    const projects = data.projects.map(p => ({
+        id: p.id.toString(), // Use numeric ID as string
+        name: p.name
+    }));
+
+    res.json(projects);
+
+  } catch (error) {
+    handlePmsError(res, error, 'fetch projects');
+  }
+});
+
+// --- ENDPOINT: PROJECT SNAPSHOT ---
+app.get('/api/projects/:projectId/snapshot', async (req, res) => {
+  const { projectId } = req.params;
+  const apiKey = req.headers['x-pms-api-key'];
+
+  if (!apiKey) {
+    return res.status(401).json({ error: 'X-Pms-Api-Key header is required.' });
+  }
+
+  try {
+    // 1. Fetch Project Details
+    const projectUrl = `${PMS_BASE_URL}/projects/${projectId}.json?key=${apiKey}`;
+    const projectRes = await fetch(projectUrl);
+    if (!projectRes.ok) throw new Error(`Failed to fetch project details: ${projectRes.status}`);
+    const projectData = await projectRes.json();
+    const p = projectData.project;
+
+    // 2. Fetch Issues (Tasks)
+    // status_id=* fetches all open and closed issues. limit=100 is a safe default for demo.
+    const issuesUrl = `${PMS_BASE_URL}/issues.json?project_id=${projectId}&status_id=*&limit=100&key=${apiKey}`;
+    const issuesRes = await fetch(issuesUrl);
+    if (!issuesRes.ok) throw new Error(`Failed to fetch issues: ${issuesRes.status}`);
+    const issuesData = await issuesRes.json();
+    const issues = issuesData.issues || [];
+
+    // 3. Transform Data to NAPE Snapshot Schema
+    
+    // --- CALCULATE AGGREGATES ---
+    let totalPoints = 0;
+    let completedPoints = 0;
+    const teamMap = new Map(); // Track unique users
+
+    const tasks = issues.map(issue => {
+        // Redmine uses estimated_hours usually. NAPE uses points. We map 1h = 1pt approx or use the value directly.
+        const points = issue.estimated_hours || 1; // Default to 1 point if null
+        const isDone = issue.status.name.toLowerCase() === 'closed' || issue.done_ratio === 100;
+        
+        totalPoints += points;
+        if (isDone) completedPoints += points;
+
+        // Build Team list
+        if (issue.assigned_to) {
+            if (!teamMap.has(issue.assigned_to.id)) {
+                teamMap.set(issue.assigned_to.id, {
+                    user_id: issue.assigned_to.id.toString(),
+                    user_name: issue.assigned_to.name,
+                    role_seniority: 'Developer', // Default, as Redmine issue doesn't have role
+                    current_task_load: 0
+                });
+            }
+            // Increment load if task is not done
+            if (!isDone) {
+                teamMap.get(issue.assigned_to.id).current_task_load += points;
+            }
+        }
+
+        // Map Issue to Task
+        return {
+            task_id: issue.id.toString(),
+            status: issue.status.name,
+            assignee_id: issue.assigned_to ? issue.assigned_to.id.toString() : 'unassigned',
+            priority: issue.priority.name,
+            time_logged_hours: issue.spent_hours || 0,
+            original_estimate_hours: issue.estimated_hours || 0,
+            is_overdue: issue.due_date ? new Date(issue.due_date) < new Date() && !isDone : false,
+            // Redmine doesn't always send dependencies in list view, skipping for simple integration
+        };
+    });
+
+    const team = Array.from(teamMap.values());
+
+    // --- SYNTHESIZE MISSING METRICS ---
+    // Since Redmine doesn't provide these natively, we generate plausible data 
+    // based on the real task state to ensure the Analysis engine has something to work with.
+    
+    const isProjectLate = new Date() > new Date(p.due_date || new Date().setDate(new Date().getDate() + 30));
+    
+    // Heuristic: If many tasks are overdue, accuracy is likely low.
+    const overdueCount = tasks.filter(t => t.is_overdue).length;
+    const accuracy = overdueCount > 2 ? 0.8 : 1.05;
+
+    const snapshot = {
+        project: {
+            project_id: p.id.toString(),
+            project_name: p.name,
+            target_due_date: p.due_date || new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
+            total_story_points: Math.round(totalPoints),
+            completed_story_points: Math.round(completedPoints),
+            last_update_date: p.updated_on ? p.updated_on.split('T')[0] : new Date().toISOString().split('T')[0],
+        },
+        tasks: tasks,
+        team: team,
+        // Synthetic Nuance Metrics based on real issue counts
+        nuance_metrics: {
+            team_historical_velocity: Math.max(10, Math.round(completedPoints / 4)), // Rough estimate: total completed / 4 weeks
+            team_historical_estimation_accuracy: accuracy,
+            task_reopen_rate: 0.05, // Default/Assumption
+            avg_blocker_resolution_time_days: 2.0, // Default/Assumption
+            task_churn_rate: 0.1, // Default/Assumption
+            new_team_member_flag: false,
+        },
+        recent_trends: {
+            velocity_change_pct_last_3_sprints: 0.0,
+            completed_points_last_week: Math.round(completedPoints / 10), // Rough estimate
+        },
+        timestamp: new Date().toISOString(),
+    };
+
+    res.json(snapshot);
+
+  } catch (error) {
+    handlePmsError(res, error, `fetch snapshot for ${projectId}`);
+  }
 });
 
 app.listen(port, () => {
-  console.log(`Backend server listening at http://localhost:${port}`);
-  console.log('NOTE: Ensure dependencies are installed: npm install express cors');
+  console.log(`\n--- NAPE BACKEND ---`);
+  console.log(`Server listening at http://localhost:${port}`);
+  console.log(`Connected to PMS: ${PMS_BASE_URL}`);
+  console.log(`Ready to process requests...\n`);
 });

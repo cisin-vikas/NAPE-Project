@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { AnalysisResult } from '../types';
+import { AnalysisResult, ProjectSnapshot } from '../types';
 import MetricCard from './MetricCard';
 import Gauge from './Gauge';
 import RiskList from './RiskList';
@@ -8,9 +8,15 @@ import RecommendationList from './RecommendationList';
 import Diagnostics from './Diagnostics';
 import { BeakerIcon } from './icons';
 import ExportButton from './ExportButton';
-import VelocityChart from './VelocityChart';
+import BurndownChart from './BurndownChart';
+import TaskList from './TaskList';
 
-const Dashboard: React.FC<{ data: AnalysisResult }> = ({ data }) => {
+interface DashboardProps {
+  data: AnalysisResult;
+  tasks?: ProjectSnapshot['tasks'];
+}
+
+const Dashboard: React.FC<DashboardProps> = ({ data, tasks }) => {
   const getStatusColor = () => {
     switch (data.projectStatus) {
       case 'On Track': return 'text-status-green';
@@ -71,10 +77,10 @@ const Dashboard: React.FC<{ data: AnalysisResult }> = ({ data }) => {
         </div>
       </div>
 
-      {/* Velocity Chart */}
-      {data.velocityTrend && data.velocityTrend.length > 0 && (
+      {/* Burndown Chart */}
+      {data.burndownTrend && data.burndownTrend.length > 0 && (
          <div className="grid grid-cols-1">
-             <VelocityChart data={data.velocityTrend} />
+             <BurndownChart data={data.burndownTrend} />
          </div>
       )}
 
@@ -84,6 +90,9 @@ const Dashboard: React.FC<{ data: AnalysisResult }> = ({ data }) => {
         <RecommendationList recommendations={data.recommendations} />
       </div>
       
+      {/* Task List */}
+      {tasks && <TaskList tasks={tasks} />}
+
       {/* Diagnostics */}
       <Diagnostics diagnostics={data.diagnostics} />
 
