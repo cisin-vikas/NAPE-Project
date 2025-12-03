@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { AnalysisResult } from '../types';
+import { AnalysisResult, ProjectSnapshot } from '../types';
 import { ArrowDownTrayIcon, ChevronDownIcon } from './icons';
 import jsPDF from 'jspdf';
 // FIX: Use functional import for `jspdf-autotable` which is more reliable with module bundlers.
@@ -7,9 +8,10 @@ import autoTable from 'jspdf-autotable';
 
 interface ExportButtonProps {
   analysisData: AnalysisResult;
+  team?: ProjectSnapshot['team'];
 }
 
-const ExportButton: React.FC<ExportButtonProps> = ({ analysisData }) => {
+const ExportButton: React.FC<ExportButtonProps> = ({ analysisData, team }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -64,6 +66,10 @@ const ExportButton: React.FC<ExportButtonProps> = ({ analysisData }) => {
       ['--RECOMMENDATIONS--'],
       ['Action', 'Details'],
       ...recommendations.map(r => [r.action, r.details]),
+      [],
+      ['--TEAM COMPOSITION--'],
+      ['Name', 'Role', 'Current Load (Points)'],
+      ...(team ? team.map(t => [t.user_name, t.role_seniority, t.current_task_load.toString()]) : []),
       [],
       ['--DIAGNOSTICS--'],
       ['Missing Data', diagnostics.missing.join('; ')],
@@ -159,6 +165,19 @@ const ExportButton: React.FC<ExportButtonProps> = ({ analysisData }) => {
     });
     // FIX: Cast `doc` to `any` for the same reason as above to fix 'lastAutoTable' does not exist error.
     y = (doc as any).lastAutoTable.finalY! + 10;
+
+    // Team Table
+    if (team && team.length > 0) {
+        checkPageBreak(30);
+        autoTable(doc, {
+            startY: y,
+            head: [['Team Member', 'Role', 'Current Load (Pts)']],
+            body: team.map(t => [t.user_name, t.role_seniority, t.current_task_load]),
+            theme: 'striped',
+            headStyles: { fillColor: [88, 166, 255] }, // brand-primary
+        });
+        y = (doc as any).lastAutoTable.finalY! + 10;
+    }
 
     // Diagnostics
     checkPageBreak(40);

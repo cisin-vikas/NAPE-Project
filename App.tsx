@@ -116,7 +116,8 @@ const App: React.FC = () => {
           {analysisResult && !isLoading && (
             <Dashboard 
               data={analysisResult} 
-              tasks={currentSnapshot?.tasks} 
+              tasks={currentSnapshot?.tasks}
+              team={currentSnapshot?.team}
             />
           )}
           {!analysisResult && !isLoading && !error && (

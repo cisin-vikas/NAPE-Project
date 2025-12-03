@@ -14,9 +14,10 @@ import TaskList from './TaskList';
 interface DashboardProps {
   data: AnalysisResult;
   tasks?: ProjectSnapshot['tasks'];
+  team?: ProjectSnapshot['team'];
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ data, tasks }) => {
+const Dashboard: React.FC<DashboardProps> = ({ data, tasks, team }) => {
   const getStatusColor = () => {
     switch (data.projectStatus) {
       case 'On Track': return 'text-status-green';
@@ -43,7 +44,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, tasks }) => {
             <h2 className="text-2xl font-bold text-white">{data.projectName}</h2>
             <p className="text-brand-muted">Analysis as of: {new Date(data.asOfDate).toLocaleDateString()}</p>
           </div>
-          <ExportButton analysisData={data} />
+          <ExportButton analysisData={data} team={team} />
       </div>
 
       {/* Top Metrics */}
